@@ -32,7 +32,7 @@ class OrderType(DjangoObjectType):
 
 # Creating Mutation
 class CreateCustomer(graphene.Mutation):
-    class arguments:
+    class Arguments:
         name = graphene.String(required=True)
         email = graphene.String(required=True)
         phone = graphene.String(required=True)
@@ -45,17 +45,17 @@ class CreateCustomer(graphene.Mutation):
         if Customer.objects.filter(email=email).exists():
             return CreateCustomer(
                 success=False, message="Email already exists.")
-        if phone and not re.match(r'^(\+\d{10,15}|\d{3}-\d{3}-\d{4})$', phone):
+        if phone and not re.match(r'^(\+\d{10,15}|\d{3}-\d{3}-\d{4}|\d{10,15})$', phone):
             return CreateCustomer(
                 success=False, message='Invalid phone format.')
         customer = Customer(name=name, email=email, phone=phone)
         customer.save()
         return CreateCustomer(customer=customer, success=True,
-                              massage='Customer created successfully.')
+                              message='Customer created successfully.')
 
 
 class BulkCreateCustomers(graphene.Mutation):
-    class arguments:
+    class Arguments:
         customers = graphene.List(graphene.JSONString, required=True)
     created_customers = graphene.List(CustomerType)
     errors = graphene.List(graphene.String)
@@ -69,14 +69,14 @@ class BulkCreateCustomers(graphene.Mutation):
             for idx, data in enumerate(customers):
 
                 try:
-                    name = data.get['name']
-                    email = data.get['email']
-                    phone = data.get['phone']
+                    name = data.get('name')
+                    email = data.get('email')
+                    phone = data.get('phone')
 
                     if not name or not email:
                         return ValueError('Missing required fields.')
 
-                    if phone and not re.match(r'^(\+\d{10,15}|\d{3}-\d{3}-\d{4})$', phone):
+                    if phone and not re.match(r'^(\+\d{10,15}|\d{3}-\d{3}-\d{4}|\d{10,15})$', phone):
                         return ValueError('invalid phone format')
 
                     if Customer.objects.filter(email=email).exists():
@@ -91,7 +91,7 @@ class BulkCreateCustomers(graphene.Mutation):
 
 
 class CreateProduct(graphene.Mutation):
-    class arguments:
+    class Arguments:
         name = graphene.String(required=True)
         price = graphene.Float(required=True)
         stock = graphene.Int()
@@ -114,7 +114,7 @@ class CreateProduct(graphene.Mutation):
 
 
 class CreateOrder(graphene.Mutation):
-    class arguments:
+    class Arguments:
         customer_id = graphene.ID(required=True)
         product_ids = graphene.List(graphene.ID, required=True)
         order_date = graphene.DateTime()
@@ -134,11 +134,11 @@ class CreateOrder(graphene.Mutation):
                 success=False, message='one product must be selected')
 
         products = Product.objects.filter(id__in=product_ids)
-        if products.count != len(product_ids):
+        if products.count() != len(product_ids):
             return CreateOrder(
                 success=False, message='One or more product IDs are invalid.')
-        total_price = sum(p.price for p in product_ids)
-        order = Order(customer=customer, product_ids=product_ids,
+        total_price = sum(p.price for p in products)
+        order = Order(customer=customer,
                       order_date=order_date or timezone.now(),
                       total_price=total_price)
         order.save()
@@ -181,4 +181,4 @@ class Query(graphene.ObjectType):
         return Product.objects.get(pk=id)
 
     def resolve_order(root, id, info):
-        return Product.objects.get(pk=id)
+        return Order.objects.get(pk=id)
