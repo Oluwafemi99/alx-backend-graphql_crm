@@ -4,6 +4,8 @@ from .models import Customer, Product, Order
 from graphene_django.types import DjangoObjectType
 from django.db import transaction
 from django.utils import timezone
+from .filters import CustomerFilter, ProductFilter, OrderFilter
+from graphene_django.filter import DjangoFilterConnectionField
 
 
 # create GraphQl types for Mutation
@@ -28,6 +30,31 @@ class OrderType(DjangoObjectType):
     # and product details) are supported:
     customer = graphene.Field(lambda: CustomerType)
     products = graphene.List(lambda: ProductType)
+
+
+# Define Relay-Compatible Types for filters
+class CustomerNode(DjangoObjectType):
+    class Meta:
+        model = Customer
+        interfaces = (graphene.relay.Node,)
+        filterset_class = CustomerFilter
+        fields = '__all__'
+
+
+class ProductNode(DjangoObjectType):
+    class Meta:
+        model = Product
+        interfaces = (graphene.relay.Node,)
+        filterset_class = ProductFilter
+        fields = '__all__'
+
+
+class OrderNode(DjangoObjectType):
+    class Meta:
+        model = Order
+        interfaces = (graphene.relay.Node,)
+        filterset_class = OrderFilter
+        fields = '__all__'
 
 
 # Creating Mutation
@@ -140,7 +167,7 @@ class CreateOrder(graphene.Mutation):
         total_price = sum(p.price for p in products)
         order = Order(customer=customer,
                       order_date=order_date or timezone.now(),
-                      total_price=total_price)
+                      total_amount=total_price)
         order.save()
         order.products.set(products)
         return CreateOrder(order=order, success=True,
@@ -157,28 +184,41 @@ class Mutation(graphene.ObjectType):
 
 # creating Query feilds
 class Query(graphene.ObjectType):
-    all_customers = graphene.List(CustomerType)
-    all_products = graphene.List(ProductType)
-    all_orders = graphene.List(OrderType)
+    # Relay-compatible query fields with filters and sorting
+    all_customers = DjangoFilterConnectionField(
+        CustomerNode,
+        order_by=graphene.List(of_type=graphene.String)  # e.g., ["name", "-email"]
+    )
+    all_products = DjangoFilterConnectionField(
+        ProductNode,
+        order_by=graphene.List(of_type=graphene.String)  # e.g., ["price", "-stock"]
+    )
+    all_orders = DjangoFilterConnectionField(
+        OrderNode,
+        order_by=graphene.List(of_type=graphene.String)  # e.g., ["order_date", "-total_amount"]
+    )
 
-    customer = graphene.Field(CustomerType, id=graphene.ID(required=True))
-    product = graphene.Field(ProductType, id=graphene.ID(required=True))
-    order = graphene.Field(OrderType, id=graphene.ID(required=True))
+    # Single object lookups
+    customer = graphene.relay.Node.Field(CustomerNode)
+    product = graphene.relay.Node.Field(ProductNode)
+    order = graphene.relay.Node.Field(OrderNode)
 
-    def resolve_all_customers(root, info):
-        return Customer.objects.all()
+    # Resolvers with sorting logic
+    def resolve_all_customers(root, info, order_by=None, **kwargs):
+        qs = Customer.objects.all()
+        if order_by:
+            qs = qs.order_by(*order_by)
+        return qs
 
-    def resolve_all_products(root, info):
-        return Product.objects.all()
+    def resolve_all_products(root, info, order_by=None, **kwargs):
+        qs = Product.objects.all()
+        if order_by:
+            fields = order_by.split(",")
+            qs = qs.order_by(*fields)
+        return qs
 
-    def resolve_all_orders(root, info):
-        return Order.objects.all()
-
-    def resolve_customer(root, id, info):
-        return Customer.objects.get(pk=id)
-
-    def resolve_product(root, id, info):
-        return Product.objects.get(pk=id)
-
-    def resolve_order(root, id, info):
-        return Order.objects.get(pk=id)
+    def resolve_all_orders(root, info, order_by=None, **kwargs):
+        qs = Order.objects.all()
+        if order_by:
+            qs = qs.order_by(*order_by)
+        return qs
