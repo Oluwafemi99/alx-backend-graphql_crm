@@ -54,7 +54,7 @@ class OrderNode(DjangoObjectType):
         model = Order
         interfaces = (graphene.relay.Node,)
         filterset_class = OrderFilter
-        fields = '__all__'
+        fields = ['id', 'customer', 'order_date', 'total_amount']
 
 
 # Creating Mutation
