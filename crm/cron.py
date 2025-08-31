@@ -1,5 +1,6 @@
 from datetime import datetime
-import requests
+from gql.transport.requests import RequestsHTTPTransport
+from gql import gql, Client
 
 
 def log_crm_heartbeat():
@@ -8,19 +9,23 @@ def log_crm_heartbeat():
     with open("/tmp/crm_heartbeat_log.txt", "a") as f:
         f.write(log_line)
 
-    # Optional: GraphQL hello field check
+    # GraphQL hello field check using gql
     try:
-        resp = requests.post(
-            "http://localhost:8000/graphql",
-            json={"query": "{ hello }"},
-            timeout=5
+        transport = RequestsHTTPTransport(
+            url="http://localhost:8000/graphql",
+            verify=True,
+            retries=3,
         )
-        if resp.ok and "hello" in resp.text:
-            with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-                f.write(f"{now} GraphQL hello OK\n")
+        client = Client(transport=transport, fetch_schema_from_transport=False)
+        query = gql("{ hello }")
+        result = client.execute(query)
+        hello_value = result.get("hello")
+        if hello_value:
+            msg = f"{now} GraphQL hello OK: {hello_value}\n"
         else:
-            with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-                f.write(f"{now} GraphQL hello FAIL\n")
+            msg = f"{now} GraphQL hello FAIL: No hello field in response\n"
     except Exception as e:
-        with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-            f.write(f"{now} GraphQL hello ERROR: {e}\n")
+        msg = f"{now} GraphQL hello ERROR: {e}\n"
+
+    with open("/tmp/crm_heartbeat_log.txt", "a") as f:
+        f.write(msg)
