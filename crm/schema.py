@@ -1,11 +1,12 @@
 import graphene
 import re
-from .models import Customer, Product, Order
+from .models import Customer, Order
 from graphene_django.types import DjangoObjectType
 from django.db import transaction
 from django.utils import timezone
 from .filters import CustomerFilter, ProductFilter, OrderFilter
 from graphene_django.filter import DjangoFilterConnectionField
+from crm.models import Product
 
 
 # create GraphQl types for Mutation
