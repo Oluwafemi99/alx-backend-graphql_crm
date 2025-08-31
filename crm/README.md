@@ -1,11 +1,8 @@
-# CRM Weekly Report Setup with Celery + GraphQL
+# CRM Weekly Report Automation
 
-## Prerequisites
-- Redis installed and running on `localhost:6379`
-- Python dependencies installed from `requirements.txt`
+## Setup Instructions
 
-## Setup
-
-1. Install dependencies:
-
+### 1. Install Redis and Dependencies
+```bash
+brew install redis
 pip install -r requirements.txt
