@@ -7,6 +7,7 @@ from django.utils import timezone
 from .filters import CustomerFilter, ProductFilter, OrderFilter
 from graphene_django.filter import DjangoFilterConnectionField
 from crm.models import Product
+from django.db.models import Sum
 
 
 # create GraphQl types for Mutation
@@ -225,6 +226,7 @@ class Query(graphene.ObjectType):
         OrderNode,
         order_by=graphene.List(of_type=graphene.String)  # e.g., ["order_date", "-total_amount"]
     )
+    all_revenue = graphene.Float()
 
     # Single object lookups
     customer = graphene.relay.Node.Field(CustomerNode)
@@ -249,4 +251,8 @@ class Query(graphene.ObjectType):
         qs = Order.objects.all()
         if order_by:
             qs = qs.order_by(*order_by)
+        return qs
+
+    def resolve_all_revenue(root, info, **kwargs):
+        qs = float(Order.objects.aggregate(total=Sum("total_amount"))["total"] or 0.0)
         return qs
