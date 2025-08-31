@@ -174,12 +174,39 @@ class CreateOrder(graphene.Mutation):
                            message='Order created successfully.')
 
 
-# creating Mutation
+class UpdateLowStockProducts(graphene.Mutation):
+    class Arguments:
+        pass
+
+    updatedproduct = graphene.List(ProductType)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    def mutate(self):
+        low_stock_product = Product.objects.filter(stock__lt=10)
+        updated = []
+        for product in low_stock_product:
+            product += 10
+            product.save()
+            updated.append(product)
+            if updated:
+                msg = f'{len(updated)} Products has been restocked'
+            else:
+                msg = 'No Product needed Restocking.'
+            return UpdateLowStockProducts(
+                success=True,
+                message=msg,
+                updatedproduct=updated
+            )
+
+
+# creating Mutation feild
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()
 
 
 # creating Query feilds

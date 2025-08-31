@@ -1,6 +1,7 @@
 from datetime import datetime
 from gql.transport.requests import RequestsHTTPTransport
 from gql import gql, Client
+from django.utils import timezone
 
 
 def log_crm_heartbeat():
@@ -29,3 +30,31 @@ def log_crm_heartbeat():
 
     with open("/tmp/crm_heartbeat_log.txt", "a") as f:
         f.write(msg)
+
+
+def update_low_stock():
+    client = Client()
+    mutation = '''
+    mutation {
+      updateLowStockProducts {
+        success
+        message
+        updatedProducts {
+          id
+          name
+          stock
+        }
+      }
+    }
+    '''
+    response = client.post(
+        "/graphql/",
+        data={"query": mutation},
+        content_type="application/json"
+    )
+    data = response.json().get("data", {}).get("updateLowStockProducts", {})
+    log_path = "/tmp/low_stock_updates_log.txt"
+    with open(log_path, "a") as f:
+        f.write(f"\n[{timezone.now()}] {data.get('message')}\n")
+        for prod in data.get("updatedProducts", []):
+            f.write(f"  - {prod['name']} (ID: {prod['id']}): stock={prod['stock']}\n")
